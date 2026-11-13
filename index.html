@@ -27,7 +27,12 @@
 <label for="start">เริ่มตัดที่วินาที (ใช้กับคลิปเดียว)</label><input id="start" type="number" min="0" step="0.1" value="0">
 <label for="end">สิ้นสุดที่วินาที (เว้นว่าง = จนจบ)</label><input id="end" type="number" min="0" step="0.1" placeholder="เช่น 15">
 <label for="audio">เพิ่มเพลงหรือเสียงประกอบ (ไม่บังคับ)</label><input id="audio" type="file" accept="audio/*">
-<p class="muted">เมื่อเพิ่มเสียง ระบบจะใช้เสียงที่เลือกแทนเสียงเดิมของวิดีโอ • ปรับความเร็วได้ตั้งแต่ 0.5× ถึง 2×</p>
+<p class="muted">เมื่อเพิ่มเสียง ระบบจะใช้เสียงที่เลือกแทนเสียงเดิมของวิดีโอ</p>
+<label for="volume">ระดับเสียง (0–200%)</label><input id="volume" type="range" min="0" max="2" step="0.1" value="1" style="width:100%">
+<div id="volumeValue" class="muted">เสียง 100%</div>
+<label for="brightness">ความสว่างภาพ</label><input id="brightness" type="range" min="-0.3" max="0.3" step="0.05" value="0" style="width:100%">
+<div id="brightnessValue" class="muted">ความสว่างปกติ</div>
+<label for="ratio">อัตราส่วนภาพ</label><select id="ratio" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;font:inherit"><option value="1280:720">แนวนอน 16:9</option><option value="720:1280">แนวตั้ง 9:16</option><option value="720:720">จัตุรัส 1:1</option></select>
 <label for="speed">ความเร็ววิดีโอ</label><select id="speed" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;font:inherit"><option value="0.5">0.5× ช้าครึ่งหนึ่ง</option><option value="0.75">0.75× ช้าลง</option><option value="1" selected>1× ปกติ</option><option value="1.25">1.25× เร็วขึ้น</option><option value="1.5">1.5×</option><option value="2">2× เร็วสองเท่า</option></select>
 <label for="quality">คุณภาพส่งออก</label><select id="quality" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;font:inherit"><option value="1280:720">MP4 • 720p (แนะนำ)</option><option value="854:480">MP4 • 480p</option></select>
 </section>
@@ -77,7 +82,9 @@ $('export').addEventListener('click',async()=>{
  const btn=$('export');btn.disabled=true;$('clear').disabled=true;$('download').classList.add('hidden');progress(0);
  try{
   await loadEngine();
-  const scale=$('quality').value;
+  const scale=$('ratio').value==='1280:720'?$('quality').value:$('ratio').value;
+  const volume=Number($('volume').value);
+  const brightness=Number($('brightness').value);
   const start=Math.max(0,Number($('start').value)||0);
   const speed=Math.max(0.5,Math.min(2,Number($('speed').value)||1));
   const endText=$('end').value.trim();
@@ -88,15 +95,15 @@ $('export').addEventListener('click',async()=>{
    if(start>0)args.push('-ss',String(start));
    if(endText){const end=Number(endText);if(!Number.isFinite(end)||end<=start)throw new Error('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม');args.push('-t',String(end-start))}
    if(audio.files[0]){await writeInput(audio.files[0],'music');args.push('-i','music','-map','0:v:0','-map','1:a:0','-shortest')}
-   args.push('-vf','setpts=PTS/'+speed+',scale='+scale+':force_original_aspect_ratio=decrease,pad='+scale+':(ow-iw)/2:(oh-ih)/2','-c:v','libx264','-preset','ultrafast','-crf','23','-pix_fmt','yuv420p','-movflags','+faststart');
-   if(!audio.files[0])args.push('-af','atempo='+speed,'-c:a','aac','-b:a','128k');
+   args.push('-vf','setpts=PTS/'+speed+',eq=brightness='+brightness+',scale='+scale+':force_original_aspect_ratio=decrease,pad='+scale+':(ow-iw)/2:(oh-ih)/2','-c:v','libx264','-preset','ultrafast','-crf','23','-pix_fmt','yuv420p','-movflags','+faststart');
+   args.push('-af',(audio.files[0]?'atempo='+speed+',volume='+volume:'atempo='+speed+',volume='+volume),'-c:a','aac','-b:a','128k');
    args.push('output.mp4');status('กำลังตัดต่อและเข้ารหัสวิดีโอ…');await ffmpeg.exec(args);
   }else{
    if(audio.files[0])throw new Error('การรวมหลายคลิปพร้อมเพิ่มเพลงยังไม่รองรับในรุ่นนี้ กรุณารวมคลิปก่อน แล้วเพิ่มเพลงในรอบถัดไป');
    const list=[];
    for(let i=0;i<files.length;i++){
     status('กำลังเตรียมคลิป '+(i+1)+' จาก '+files.length+'…');const name='clip'+i+'.mp4';await writeInput(files[i],'source'+i);
-    await ffmpeg.exec(['-i','source'+i,'-vf','setpts=PTS/'+speed+',scale='+scale+':force_original_aspect_ratio=decrease,pad='+scale+':(ow-iw)/2:(oh-ih)/2','-af','atempo='+speed,'-r','30','-c:v','libx264','-preset','ultrafast','-crf','23','-c:a','aac','-ar','44100','-ac','2','-pix_fmt','yuv420p',name]);
+    await ffmpeg.exec(['-i','source'+i,'-vf','setpts=PTS/'+speed+',eq=brightness='+brightness+',scale='+scale+':force_original_aspect_ratio=decrease,pad='+scale+':(ow-iw)/2:(oh-ih)/2','-af','atempo='+speed+',volume='+volume,'-r','30','-c:v','libx264','-preset','ultrafast','-crf','23','-c:a','aac','-ar','44100','-ac','2','-pix_fmt','yuv420p',name]);
     list.push("file '"+name+"'");
    }
    await ffmpeg.writeFile('list.txt',new TextEncoder().encode(list.join('\n')));
@@ -109,6 +116,8 @@ $('export').addEventListener('click',async()=>{
  }catch(e){console.error(e);status('เกิดข้อผิดพลาด: '+(e.message||e)+'\nลองรีเฟรชหน้าเว็บ หรือใช้คลิปที่มีขนาดเล็กลง');}
  finally{btn.disabled=false;$('clear').disabled=false}
 });
+$('volume').addEventListener('input',()=>{$('volumeValue').textContent='เสียง '+Math.round(Number($('volume').value)*100)+'%';});
+$('brightness').addEventListener('input',()=>{$('brightnessValue').textContent='ความสว่าง '+(Number($('brightness').value)===0?'ปกติ':Math.round(Number($('brightness').value)*100)+'%');$('preview').style.filter='brightness('+(1+Number($('brightness').value))+')';});
 $('clear').addEventListener('click',()=>{videos.value='';audio.value='';$('videoNames').textContent='ยังไม่ได้เลือกวิดีโอ';$('preview').classList.add('hidden');$('preview').removeAttribute('src');$('start').value='0';$('end').value='';$('download').classList.add('hidden');progress(0);status('ล้างรายการแล้ว')});
 if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script>
