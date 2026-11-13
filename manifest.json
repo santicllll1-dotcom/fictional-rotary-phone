@@ -1,0 +1,11 @@
+{
+  "name": "My Video Studio",
+  "short_name": "Video Studio",
+  "description": "ตัดต่อวิดีโอในเครื่องบน Android",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#ffffff",
+  "orientation": "any"
+}
