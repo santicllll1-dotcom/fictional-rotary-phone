@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="My Video Studio - ตัดต่อวิดีโอบน Android ในเครื่อง">
+<link rel="manifest" href="./manifest.json">
+<title>My Video Studio</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;color:#171717;background:#f5f6f8}
+*{box-sizing:border-box}body{margin:0}header{background:#fff;border-bottom:1px solid #e5e7eb;padding:16px max(16px,env(safe-area-inset-left));position:sticky;top:0;z-index:2}h1{font-size:21px;margin:0}header p{margin:3px 0 0;color:#666;font-size:13px}.wrap{max-width:850px;margin:auto;padding:16px}.panel{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;margin-bottom:14px}.panel h2{font-size:16px;margin:0 0 12px}.muted{color:#6b7280;font-size:13px}.btn{border:0;border-radius:11px;padding:13px 16px;font-weight:650;font-size:15px;background:#171717;color:#fff;min-height:46px}.btn:disabled{opacity:.45}.btn.secondary{background:#eef0f3;color:#171717}.btn.green{background:#087443}.actions{display:flex;gap:9px;flex-wrap:wrap}.actions .btn{flex:1}input[type=file]{width:100%;padding:12px;background:#f8f9fb;border:1px dashed #cbd0d8;border-radius:10px}label{display:block;font-size:14px;font-weight:600;margin:12px 0 6px}input[type=number]{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;font:inherit}video{width:100%;max-height:320px;background:#111;border-radius:10px;margin-top:10px}.progress{height:9px;background:#e5e7eb;border-radius:20px;overflow:hidden;margin:12px 0}.bar{height:100%;width:0;background:#087443;transition:width .2s}#status{font-size:13px;white-space:pre-wrap;color:#444}.filelist{font-size:13px;color:#555;margin-top:8px;white-space:pre-line}.hint{background:#f0f7ff;padding:11px;border-radius:10px;font-size:13px;color:#234}.hidden{display:none}a.download{display:block;text-align:center;text-decoration:none;background:#087443;color:white;padding:14px;border-radius:11px;font-weight:700;margin-top:12px}
+</style>
+</head>
+<body>
+<header><h1>🎬 My Video Studio</h1><p>ตัดต่อวิดีโอในเครื่อง • ไม่ใช้ AI • ไม่อัปโหลดไฟล์</p></header>
+<main class="wrap">
+<section class="panel">
+<h2>1. เลือกวิดีโอ</h2>
+<input id="videos" type="file" accept="video/*" multiple>
+<div id="videoNames" class="filelist">ยังไม่ได้เลือกวิดีโอ</div>
+<video id="preview" controls playsinline class="hidden"></video>
+<p class="muted">เลือกได้หลายคลิป ระบบจะนำมาต่อกันตามลำดับที่เลือก</p>
+</section>
+<section class="panel">
+<h2>2. ตั้งค่าตัดต่อ</h2>
+<label for="start">เริ่มตัดที่วินาที (ใช้กับคลิปเดียว)</label><input id="start" type="number" min="0" step="0.1" value="0">
+<label for="end">สิ้นสุดที่วินาที (เว้นว่าง = จนจบ)</label><input id="end" type="number" min="0" step="0.1" placeholder="เช่น 15">
+<label for="audio">เพิ่มเพลงหรือเสียงประกอบ (ไม่บังคับ)</label><input id="audio" type="file" accept="audio/*">
+<p class="muted">เมื่อเพิ่มเสียง ระบบจะใช้เสียงนี้แทนเสียงเดิมของวิดีโอ</p>
+<label for="quality">คุณภาพส่งออก</label><select id="quality" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;font:inherit"><option value="1280:720">MP4 • 720p (แนะนำ)</option><option value="854:480">MP4 • 480p</option></select>
+</section>
+<section class="panel">
+<h2>3. ประมวลผลและส่งออก</h2>
+<div class="hint">การประมวลผลเกิดขึ้นบนอุปกรณ์ของคุณ อาจใช้เวลานานและกินแบตเตอรี่ โดยเฉพาะวิดีโอขนาดใหญ่ กรุณาเปิดหน้านี้ค้างไว้จนเสร็จ</div>
+<div class="progress"><div id="bar" class="bar"></div></div>
+<div id="status">พร้อมใช้งาน — เลือกวิดีโอเพื่อเริ่มต้น</div>
+<div class="actions" style="margin-top:14px"><button id="export" class="btn green">เริ่มส่งออก MP4</button><button id="clear" class="btn secondary">ล้างรายการ</button></div>
+<a id="download" class="download hidden" download="my-video-studio.mp4">ดาวน์โหลดวิดีโอ MP4</a>
+</section>
+<section class="panel">
+<h2>ติดตั้งบน Android</h2>
+<p class="muted">เปิดเว็บนี้ด้วย Chrome แล้วกดเมนู ⋮ → “ติดตั้งแอป” หรือ “เพิ่มลงในหน้าจอหลัก” (เมนูติดตั้งจะแสดงเมื่อเปิดผ่าน HTTPS)</p>
+</section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let ffmpeg=null,ready=false,outputUrl=null;
+const videos=$('videos'), audio=$('audio');
+function status(s){$('status').textContent=s}
+function progress(p){$('bar').style.width=Math.max(0,Math.min(100,p))+'%'}
+function fmtBytes(n){return n>1024*1024?(n/1024/1024).toFixed(1)+' MB':(n/1024).toFixed(0)+' KB'}
+videos.addEventListener('change',()=>{
+ const files=[...videos.files];$('videoNames').textContent=files.length?files.map((f,i)=>(i+1)+'. '+f.name+' ('+fmtBytes(f.size)+')').join('\n'):'ยังไม่ได้เลือกวิดีโอ';
+ const p=$('preview');if(files.length){p.src=URL.createObjectURL(files[0]);p.classList.remove('hidden')}else{p.classList.add('hidden');p.removeAttribute('src')}
+ $('download').classList.add('hidden');
+});
+async function loadEngine(){
+ if(ready)return;
+ if(!window.FFmpegWASM||!window.FFmpegWASM.FFmpeg)throw new Error('โหลดตัวประมวลผลไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วรีเฟรชหน้าเว็บ');
+ const {FFmpeg}=window.FFmpegWASM;ffmpeg=new FFmpeg();
+ ffmpeg.on('log',({message})=>{if(message)status(message.slice(-240))});
+ ffmpeg.on('progress',({progress:p})=>progress(p*100));
+ const base='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+ const toBlobURL=async(url,type)=>{const r=await fetch(url);if(!r.ok)throw new Error('ดาวน์โหลดตัวประมวลผลไม่ได้: '+url);return URL.createObjectURL(new Blob([await r.arrayBuffer()],{type}))};
+ status('กำลังโหลดตัวประมวลผลวิดีโอครั้งแรก…');
+ const coreURL=await toBlobURL(base+'/ffmpeg-core.js','text/javascript');
+ const wasmURL=await toBlobURL(base+'/ffmpeg-core.wasm','application/wasm');
+ await ffmpeg.load({coreURL,wasmURL});ready=true;
+}
+async function writeInput(file,name){await ffmpeg.writeFile(name,new Uint8Array(await file.arrayBuffer()))}
+$('export').addEventListener('click',async()=>{
+ const files=[...videos.files];if(!files.length){status('กรุณาเลือกวิดีโอก่อน');return}
+ const btn=$('export');btn.disabled=true;$('clear').disabled=true;$('download').classList.add('hidden');progress(0);
+ try{
+  await loadEngine();
+  const scale=$('quality').value;
+  const start=Math.max(0,Number($('start').value)||0);
+  const endText=$('end').value.trim();
+  if(files.length>1&&(start>0||endText)){throw new Error('การตัดช่วงเวลาใช้ได้เมื่อเลือกวิดีโอเพียง 1 คลิป กรุณาล้างค่าเริ่ม/สิ้นสุดก่อนรวมหลายคลิป')}
+  if(files.length===1){
+   await writeInput(files[0],'input0');
+   const args=['-i','input0'];
+   if(start>0)args.push('-ss',String(start));
+   if(endText){const end=Number(endText);if(!Number.isFinite(end)||end<=start)throw new Error('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม');args.push('-t',String(end-start))}
+   if(audio.files[0]){await writeInput(audio.files[0],'music');args.push('-i','music','-map','0:v:0','-map','1:a:0','-shortest')}
+   args.push('-vf','scale='+scale+':force_original_aspect_ratio=decrease,pad='+scale+':(ow-iw)/2:(oh-ih)/2','-c:v','libx264','-preset','ultrafast','-crf','23','-pix_fmt','yuv420p','-movflags','+faststart');
+   if(!audio.files[0])args.push('-c:a','aac','-b:a','128k');
+   args.push('output.mp4');status('กำลังตัดต่อและเข้ารหัสวิดีโอ…');await ffmpeg.exec(args);
+  }else{
+   if(audio.files[0])throw new Error('การรวมหลายคลิปพร้อมเพิ่มเพลงยังไม่รองรับในรุ่นนี้ กรุณารวมคลิปก่อน แล้วเพิ่มเพลงในรอบถัดไป');
+   const list=[];
+   for(let i=0;i<files.length;i++){
+    status('กำลังเตรียมคลิป '+(i+1)+' จาก '+files.length+'…');const name='clip'+i+'.mp4';await writeInput(files[i],'source'+i);
+    await ffmpeg.exec(['-i','source'+i,'-vf','scale='+scale+':force_original_aspect_ratio=decrease,pad='+scale+':(ow-iw)/2:(oh-ih)/2','-r','30','-c:v','libx264','-preset','ultrafast','-crf','23','-c:a','aac','-ar','44100','-ac','2','-pix_fmt','yuv420p',name]);
+    list.push("file '"+name+"'");
+   }
+   await ffmpeg.writeFile('list.txt',new TextEncoder().encode(list.join('\n')));
+   status('กำลังรวมคลิปเป็นไฟล์เดียว…');
+   await ffmpeg.exec(['-f','concat','-safe','0','-i','list.txt','-c','copy','-movflags','+faststart','output.mp4']);
+  }
+  const data=await ffmpeg.readFile('output.mp4');const blob=new Blob([data.buffer],{type:'video/mp4'});
+  if(outputUrl)URL.revokeObjectURL(outputUrl);outputUrl=URL.createObjectURL(blob);
+  $('download').href=outputUrl;$('download').classList.remove('hidden');status('เสร็จแล้ว! กดปุ่มดาวน์โหลดวิดีโอ MP4');progress(100);
+ }catch(e){console.error(e);status('เกิดข้อผิดพลาด: '+(e.message||e)+'\nลองรีเฟรชหน้าเว็บ หรือใช้คลิปที่มีขนาดเล็กลง');}
+ finally{btn.disabled=false;$('clear').disabled=false}
+});
+$('clear').addEventListener('click',()=>{videos.value='';audio.value='';$('videoNames').textContent='ยังไม่ได้เลือกวิดีโอ';$('preview').classList.add('hidden');$('preview').removeAttribute('src');$('start').value='0';$('end').value='';$('download').classList.add('hidden');progress(0);status('ล้างรายการแล้ว')});
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+</script>
+</body></html>
