@@ -19,6 +19,7 @@
 <h2>1. เลือกวิดีโอ</h2>
 <input id="videos" type="file" accept="video/*" multiple>
 <div id="videoNames" class="filelist">ยังไม่ได้เลือกวิดีโอ</div>
+<div id="timeline" class="filelist" aria-live="polite"></div>
 <video id="preview" controls playsinline class="hidden"></video>
 <p class="muted">เลือกได้หลายคลิป ระบบจะนำมาต่อกันตามลำดับที่เลือก</p>
 </section>
@@ -60,13 +61,14 @@
 <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-let ffmpeg=null,ready=false,outputUrl=null;
+let ffmpeg=null,ready=false,outputUrl=null,selectedVideos=[];
 const videos=$('videos'), audio=$('audio');
+function renderTimeline(){const box=$('timeline');box.replaceChildren();selectedVideos.forEach((file,i)=>{const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid #eee';const name=document.createElement('span');name.textContent=(i+1)+'. '+file.name;name.style.cssText='flex:1;min-width:0;overflow-wrap:anywhere';row.appendChild(name);[['↑',-1],['↓',1],['ลบ',0]].forEach(([label,move])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.className='btn secondary';b.style.cssText='padding:7px 10px;min-height:34px;font-size:13px';b.disabled=(move===-1&&i===0)||(move===1&&i===selectedVideos.length-1);b.addEventListener('click',()=>{if(move===0)selectedVideos.splice(i,1);else{const j=i+move;[selectedVideos[i],selectedVideos[j]]=[selectedVideos[j],selectedVideos[i]];}renderTimeline();$('videoNames').textContent=selectedVideos.length?'คลิปในไทม์ไลน์: '+selectedVideos.length+' รายการ':'ยังไม่ได้เลือกวิดีโอ';if(selectedVideos[0]){$('preview').src=URL.createObjectURL(selectedVideos[0]);$('preview').classList.remove('hidden')}else{$('preview').classList.add('hidden');$('preview').removeAttribute('src')}});row.appendChild(b)});box.appendChild(row)})}
 function status(s){$('status').textContent=s}
 function progress(p){$('bar').style.width=Math.max(0,Math.min(100,p))+'%'}
 function fmtBytes(n){return n>1024*1024?(n/1024/1024).toFixed(1)+' MB':(n/1024).toFixed(0)+' KB'}
 videos.addEventListener('change',()=>{
- const files=[...videos.files];$('videoNames').textContent=files.length?files.map((f,i)=>(i+1)+'. '+f.name+' ('+fmtBytes(f.size)+')').join('\n'):'ยังไม่ได้เลือกวิดีโอ';
+ selectedVideos=[...videos.files];const files=selectedVideos;$('videoNames').textContent=files.length?'คลิปในไทม์ไลน์: '+files.length+' รายการ':'ยังไม่ได้เลือกวิดีโอ';renderTimeline();
  const p=$('preview');if(files.length){p.src=URL.createObjectURL(files[0]);p.classList.remove('hidden')}else{p.classList.add('hidden');p.removeAttribute('src')}
  $('download').classList.add('hidden');
 });
@@ -85,7 +87,7 @@ async function loadEngine(){
 }
 async function writeInput(file,name){await ffmpeg.writeFile(name,new Uint8Array(await file.arrayBuffer()))}
 $('export').addEventListener('click',async()=>{
- const files=[...videos.files];if(!files.length){status('กรุณาเลือกวิดีโอก่อน');return}
+ const files=[...selectedVideos];if(!files.length){status('กรุณาเลือกวิดีโอก่อน');return}
  const btn=$('export');btn.disabled=true;$('clear').disabled=true;$('download').classList.add('hidden');progress(0);
  try{
   await loadEngine();
@@ -138,7 +140,7 @@ $('export').addEventListener('click',async()=>{
 $('volume').addEventListener('input',()=>{$('volumeValue').textContent='เสียง '+Math.round(Number($('volume').value)*100)+'%';});
 $('saturation').addEventListener('input',()=>{$('saturationValue').textContent='ความอิ่มสี '+Math.round(Number($('saturation').value)*100)+'%';});
 $('brightness').addEventListener('input',()=>{$('brightnessValue').textContent='ความสว่าง '+(Number($('brightness').value)===0?'ปกติ':Math.round(Number($('brightness').value)*100)+'%');$('preview').style.filter='brightness('+(1+Number($('brightness').value))+')';});
-$('clear').addEventListener('click',()=>{videos.value='';audio.value='';$('videoNames').textContent='ยังไม่ได้เลือกวิดีโอ';$('preview').classList.add('hidden');$('preview').removeAttribute('src');$('start').value='0';$('end').value='';$('rotate').value='0';$('mirror').checked=false;$('mute').checked=false;$('saturation').value='1';$('saturationValue').textContent='สีปกติ 100%';$('fade').value='0';$('download').classList.add('hidden');progress(0);status('ล้างรายการแล้ว')});
+$('clear').addEventListener('click',()=>{videos.value='';audio.value='';selectedVideos=[];renderTimeline();$('videoNames').textContent='ยังไม่ได้เลือกวิดีโอ';$('preview').classList.add('hidden');$('preview').removeAttribute('src');$('start').value='0';$('end').value='';$('rotate').value='0';$('mirror').checked=false;$('mute').checked=false;$('saturation').value='1';$('saturationValue').textContent='สีปกติ 100%';$('fade').value='0';$('download').classList.add('hidden');progress(0);status('ล้างรายการแล้ว')});
 if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script>
 </body></html>
