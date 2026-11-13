@@ -115,7 +115,6 @@ $('export').addEventListener('click',async()=>{
    else{let af='atempo='+speed+',volume='+volume;const fade=Math.max(0,Math.min(10,Number($('fade').value)||0));if(fade>0)af+=',afade=t=in:st=0:d='+fade;args.push('-af',af,'-c:a','aac','-b:a','128k');}
    args.push('output.mp4');status('กำลังตัดต่อและเข้ารหัสวิดีโอ…');await ffmpeg.exec(args);
   }else{
-   if(audio.files[0])throw new Error('การรวมหลายคลิปพร้อมเพิ่มเพลงยังไม่รองรับในรุ่นนี้ กรุณารวมคลิปก่อน แล้วเพิ่มเพลงในรอบถัดไป');
    const list=[];
    for(let i=0;i<files.length;i++){
     status('กำลังเตรียมคลิป '+(i+1)+' จาก '+files.length+'…');const name='clip'+i+'.mp4';await writeInput(files[i],'source'+i);
@@ -129,7 +128,11 @@ $('export').addEventListener('click',async()=>{
    }
    await ffmpeg.writeFile('list.txt',new TextEncoder().encode(list.join('\n')));
    status('กำลังรวมคลิปเป็นไฟล์เดียว…');
-   await ffmpeg.exec(['-f','concat','-safe','0','-i','list.txt','-c','copy','-movflags','+faststart','output.mp4']);
+   await ffmpeg.exec(['-f','concat','-safe','0','-i','list.txt','-c','copy','-movflags','+faststart','merged.mp4']);
+   if(audio.files[0]){
+    await writeInput(audio.files[0],'music');const fade=Math.max(0,Math.min(10,Number($('fade').value)||0));let af='volume='+volume;if(fade>0)af+=',afade=t=in:st=0:d='+fade;
+    await ffmpeg.exec(['-i','merged.mp4','-stream_loop','-1','-i','music','-map','0:v:0','-map','1:a:0','-c:v','copy','-af',af,'-c:a','aac','-b:a','128k','-shortest','-movflags','+faststart','output.mp4']);
+   }else{await ffmpeg.exec(['-i','merged.mp4','-c','copy','-movflags','+faststart','output.mp4']);}
   }
   const data=await ffmpeg.readFile('output.mp4');const blob=new Blob([data.buffer],{type:'video/mp4'});
   if(outputUrl)URL.revokeObjectURL(outputUrl);outputUrl=URL.createObjectURL(blob);
