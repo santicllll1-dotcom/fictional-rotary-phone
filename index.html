@@ -34,6 +34,13 @@
 <div id="brightnessValue" class="muted">ความสว่างปกติ</div>
 <label for="ratio">อัตราส่วนภาพ</label><select id="ratio" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;font:inherit"><option value="1280:720">แนวนอน 16:9</option><option value="720:1280">แนวตั้ง 9:16</option><option value="720:720">จัตุรัส 1:1</option></select>
 <label for="speed">ความเร็ววิดีโอ</label><select id="speed" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;font:inherit"><option value="0.5">0.5× ช้าครึ่งหนึ่ง</option><option value="0.75">0.75× ช้าลง</option><option value="1" selected>1× ปกติ</option><option value="1.25">1.25× เร็วขึ้น</option><option value="1.5">1.5×</option><option value="2">2× เร็วสองเท่า</option></select>
+<label for="rotate">หมุนวิดีโอ</label>
+<select id="rotate" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;font:inherit"><option value="0">ไม่หมุน</option><option value="1">หมุนขวา 90°</option><option value="2">หมุน 180°</option><option value="3">หมุนซ้าย 90°</option></select>
+<label><input id="mirror" type="checkbox" style="width:auto;margin-right:8px">กลับภาพซ้าย–ขวา</label>
+<label><input id="mute" type="checkbox" style="width:auto;margin-right:8px">ปิดเสียงต้นฉบับ</label>
+<label for="saturation">ความอิ่มสี</label><input id="saturation" type="range" min="0" max="2" step="0.1" value="1" style="width:100%">
+<div id="saturationValue" class="muted">สีปกติ 100%</div>
+<label for="fade">เสียงค่อย ๆ ดังขึ้น (วินาที)</label><input id="fade" type="number" min="0" max="10" step="0.5" value="0">
 <label for="quality">คุณภาพส่งออก</label><select id="quality" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;font:inherit"><option value="1280:720">MP4 • 720p (แนะนำ)</option><option value="854:480">MP4 • 480p</option></select>
 </section>
 <section class="panel">
@@ -95,15 +102,27 @@ $('export').addEventListener('click',async()=>{
    if(start>0)args.push('-ss',String(start));
    if(endText){const end=Number(endText);if(!Number.isFinite(end)||end<=start)throw new Error('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม');args.push('-t',String(end-start))}
    if(audio.files[0]){await writeInput(audio.files[0],'music');args.push('-i','music','-map','0:v:0','-map','1:a:0','-shortest')}
-   args.push('-vf','setpts=PTS/'+speed+',eq=brightness='+brightness+',scale='+scale+':force_original_aspect_ratio=decrease,pad='+scale+':(ow-iw)/2:(oh-ih)/2','-c:v','libx264','-preset','ultrafast','-crf','23','-pix_fmt','yuv420p','-movflags','+faststart');
-   args.push('-af',(audio.files[0]?'atempo='+speed+',volume='+volume:'atempo='+speed+',volume='+volume),'-c:a','aac','-b:a','128k');
+   const vf=['setpts=PTS/'+speed];
+   const rotation=$('rotate').value;
+   if(rotation==='1')vf.push('transpose=1');else if(rotation==='2')vf.push('hflip','vflip');else if(rotation==='3')vf.push('transpose=2');
+   if($('mirror').checked)vf.push('hflip');
+   vf.push('eq=brightness='+brightness+':saturation='+Number($('saturation').value));
+   vf.push('scale='+scale+':force_original_aspect_ratio=decrease','pad='+scale+':(ow-iw)/2:(oh-ih)/2');
+   args.push('-vf',vf.join(','),'-c:v','libx264','-preset','ultrafast','-crf','23','-pix_fmt','yuv420p','-movflags','+faststart');
+   if($('mute').checked&&!audio.files[0]){args.push('-an');}
+   else{let af='atempo='+speed+',volume='+volume;const fade=Math.max(0,Math.min(10,Number($('fade').value)||0));if(fade>0)af+=',afade=t=in:st=0:d='+fade;args.push('-af',af,'-c:a','aac','-b:a','128k');}
    args.push('output.mp4');status('กำลังตัดต่อและเข้ารหัสวิดีโอ…');await ffmpeg.exec(args);
   }else{
    if(audio.files[0])throw new Error('การรวมหลายคลิปพร้อมเพิ่มเพลงยังไม่รองรับในรุ่นนี้ กรุณารวมคลิปก่อน แล้วเพิ่มเพลงในรอบถัดไป');
    const list=[];
    for(let i=0;i<files.length;i++){
     status('กำลังเตรียมคลิป '+(i+1)+' จาก '+files.length+'…');const name='clip'+i+'.mp4';await writeInput(files[i],'source'+i);
-    await ffmpeg.exec(['-i','source'+i,'-vf','setpts=PTS/'+speed+',eq=brightness='+brightness+',scale='+scale+':force_original_aspect_ratio=decrease,pad='+scale+':(ow-iw)/2:(oh-ih)/2','-af','atempo='+speed+',volume='+volume,'-r','30','-c:v','libx264','-preset','ultrafast','-crf','23','-c:a','aac','-ar','44100','-ac','2','-pix_fmt','yuv420p',name]);
+    const vf=['setpts=PTS/'+speed];const rotation=$('rotate').value;
+    if(rotation==='1')vf.push('transpose=1');else if(rotation==='2')vf.push('hflip','vflip');else if(rotation==='3')vf.push('transpose=2');
+    if($('mirror').checked)vf.push('hflip');
+    vf.push('eq=brightness='+brightness+':saturation='+Number($('saturation').value),'scale='+scale+':force_original_aspect_ratio=decrease','pad='+scale+':(ow-iw)/2:(oh-ih)/2');
+    let af='atempo='+speed+',volume='+($('mute').checked?0:volume);const fade=Math.max(0,Math.min(10,Number($('fade').value)||0));if(fade>0)af+=',afade=t=in:st=0:d='+fade;
+    await ffmpeg.exec(['-i','source'+i,'-vf',vf.join(','),'-af',af,'-r','30','-c:v','libx264','-preset','ultrafast','-crf','23','-c:a','aac','-ar','44100','-ac','2','-pix_fmt','yuv420p',name]);
     list.push("file '"+name+"'");
    }
    await ffmpeg.writeFile('list.txt',new TextEncoder().encode(list.join('\n')));
@@ -117,8 +136,9 @@ $('export').addEventListener('click',async()=>{
  finally{btn.disabled=false;$('clear').disabled=false}
 });
 $('volume').addEventListener('input',()=>{$('volumeValue').textContent='เสียง '+Math.round(Number($('volume').value)*100)+'%';});
+$('saturation').addEventListener('input',()=>{$('saturationValue').textContent='ความอิ่มสี '+Math.round(Number($('saturation').value)*100)+'%';});
 $('brightness').addEventListener('input',()=>{$('brightnessValue').textContent='ความสว่าง '+(Number($('brightness').value)===0?'ปกติ':Math.round(Number($('brightness').value)*100)+'%');$('preview').style.filter='brightness('+(1+Number($('brightness').value))+')';});
-$('clear').addEventListener('click',()=>{videos.value='';audio.value='';$('videoNames').textContent='ยังไม่ได้เลือกวิดีโอ';$('preview').classList.add('hidden');$('preview').removeAttribute('src');$('start').value='0';$('end').value='';$('download').classList.add('hidden');progress(0);status('ล้างรายการแล้ว')});
+$('clear').addEventListener('click',()=>{videos.value='';audio.value='';$('videoNames').textContent='ยังไม่ได้เลือกวิดีโอ';$('preview').classList.add('hidden');$('preview').removeAttribute('src');$('start').value='0';$('end').value='';$('rotate').value='0';$('mirror').checked=false;$('mute').checked=false;$('saturation').value='1';$('saturationValue').textContent='สีปกติ 100%';$('fade').value='0';$('download').classList.add('hidden');progress(0);status('ล้างรายการแล้ว')});
 if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script>
 </body></html>
